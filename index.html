@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Math Keyboard (Copy Rendered Fixed)</title>
+  <title>Math Keyboard (Rendered Text)</title>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 0; padding: 8px; background:#fff; }
@@ -14,16 +14,14 @@
     .preview {
       border: 1px solid #ccc; padding: 2px 4px; min-height: 24px; margin-top: 6px;
       font-size: 16px; line-height: 1.4; background: #fff; box-sizing: border-box;
-      user-select: text; -webkit-user-select: text; /* allow manual copy too */
+      user-select: text;
     }
-
     .copyrow { display:flex; gap:6px; align-items:center; margin:6px 0; }
     .btn-copy, .btn-send {
       flex: 1 1 auto;
       height: 32px; padding: 0 10px; font-size: 14px;
       border: 1px solid #cfd3d9; border-radius: 6px; background:#fff; cursor:pointer;
     }
-
     .wrap { background: #ABA9D3; border-radius: 8px; padding: 6px; margin-top: 6px; }
     .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
     .btn {
@@ -32,7 +30,6 @@
     }
     .btn:active { transform: translateY(1px); }
     .row { display:grid; grid-template-columns: repeat(4, 1fr); gap:6px; margin-top:6px; }
-
     .toast {
       position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%);
       background: #111; color:#fff; padding:6px 10px; border-radius: 6px; font-size: 12px;
@@ -43,47 +40,36 @@
 </head>
 <body>
   <div class="shell">
-    <!-- LaTeX input -->
     <textarea id="input" placeholder="Type or use the keys..." oninput="updatePreview()"></textarea>
-
-    <!-- Pretty MathJax preview -->
     <div class="preview" id="preview"></div>
-
-    <!-- Copy & Send row -->
     <div class="copyrow">
       <button class="btn-copy" onclick="copyRendered()">Copy</button>
       <button class="btn-send" onclick="sendToStoryline()">Send</button>
     </div>
 
-    <!-- Keypad -->
     <div class="wrap">
       <div class="grid">
         <div class="btn" onclick="sendInsert(' + ')">+</div>
         <div class="btn" onclick="sendInsert(' - ')">−</div>
         <div class="btn" onclick="sendInsert('\\times')">×</div>
         <div class="btn" onclick="sendInsert(' : ')">:</div>
-
         <div class="btn" onclick="sendInsert(' = ')">=</div>
         <div class="btn" onclick="sendInsert('\\neq')">≠</div>
         <div class="btn" onclick="sendInsert('\\approx')">≈</div>
         <div class="btn" onclick="sendInsert('\\equiv')">≡</div>
-
         <div class="btn" onclick="sendInsert('^{2}')">x²</div>
         <div class="btn" onclick="sendInsert('^{3}')">x³</div>
         <div class="btn" onclick="sendInsertMove('^{ }', -2)">xⁿ</div>
         <div class="btn" onclick="sendInsertMove(' \\frac{}{}', -3)">a⁄b</div>
-
         <div class="btn" onclick="sendInsertMove(' \\sqrt{}', -1)">√</div>
         <div class="btn" onclick="sendInsertMove(' \\sqrt[n]{}', -1)">ⁿ√</div>
         <div class="btn" onclick="sendInsert(' < ')">&lt;</div>
         <div class="btn" onclick="sendInsert(' > ')">&gt;</div>
-
         <div class="btn" onclick="sendInsert('(')">(</div>
         <div class="btn" onclick="sendInsert(')')">)</div>
         <div class="btn" onclick="sendInsert('[')">[</div>
         <div class="btn" onclick="sendInsert(']')">]</div>
       </div>
-
       <div class="row">
         <div class="btn" onclick="sendInsert('.')">.</div>
         <div class="btn" onclick="sendAction('back')">←</div>
@@ -92,11 +78,10 @@
       </div>
     </div>
   </div>
-
   <div id="toast" class="toast">Copied</div>
 
 <script>
-  const TARGET = null; // or "MathEntry1" if you want fixed target
+  const TARGET = null; // or "MathEntry1"
 
   function post(msg){ try { parent.postMessage(msg, "*"); } catch(e) {} }
   function toast(msg){
@@ -113,26 +98,15 @@
     if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([prev]);
   }
 
+  function getRenderedText(){
+    const prev = document.getElementById('preview');
+    // Fallback to visible text if MathJax objects not accessible
+    let text = (prev.textContent || "").replace(/\s+/g, " ").trim();
+    return text || "";
+  }
+
   async function copyRendered(){
-    const preview = document.getElementById('preview');
-    let text = "";
-
-    try {
-      if (window.MathJax && MathJax.startup && MathJax.startup.document) {
-        const items = MathJax.startup.document.getMathItemsWithin(preview);
-        if (items && items.length) {
-          const mj = items[0];
-          const maybe = (typeof mj.toString === "function") ? mj.toString("text") : null;
-          if (typeof maybe === "string") text = maybe;
-        }
-      }
-    } catch(e){}
-
-    if (!text) {
-      text = (preview.textContent || "").replace(/\s+/g, " ").trim();
-    }
-    text = String(text);
-
+    const text = getRenderedText();
     try {
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(text);
@@ -149,9 +123,9 @@
   }
 
   function sendToStoryline(){
-    const src = document.getElementById('input').value;
-    post({ type: "LATEX_SET", value: src, target: TARGET });
-    toast("Sent to Storyline");
+    const text = getRenderedText(); // rendered instead of LaTeX
+    post({ type: "LATEX_SET", value: text, target: TARGET });
+    toast("Sent: " + text);
   }
 
   function insertIntoLocal(text){
@@ -169,7 +143,6 @@
     updatePreview();
   }
   function clearLocal(){ document.getElementById('input').value = ''; updatePreview(); }
-
   function sendInsert(text){ insertIntoLocal(text); }
   function sendInsertMove(text, move){
     insertIntoLocal(text);
