@@ -3,14 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Math Keyboard (Rendered Text)</title>
+  <title>Math Keyboard (Unicode Output)</title>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 0; padding: 8px; background:#fff; }
     .shell { max-width: 240px; }
-    textarea {
-      width: 100%; height: 50px; font-size: 16px; box-sizing: border-box;
-    }
+    textarea { width: 100%; height: 50px; font-size: 16px; box-sizing: border-box; }
     .preview {
       border: 1px solid #ccc; padding: 2px 4px; min-height: 24px; margin-top: 6px;
       font-size: 16px; line-height: 1.4; background: #fff; box-sizing: border-box;
@@ -18,8 +16,7 @@
     }
     .copyrow { display:flex; gap:6px; align-items:center; margin:6px 0; }
     .btn-copy, .btn-send {
-      flex: 1 1 auto;
-      height: 32px; padding: 0 10px; font-size: 14px;
+      flex: 1 1 auto; height: 32px; padding: 0 10px; font-size: 14px;
       border: 1px solid #cfd3d9; border-radius: 6px; background:#fff; cursor:pointer;
     }
     .wrap { background: #ABA9D3; border-radius: 8px; padding: 6px; margin-top: 6px; }
@@ -43,8 +40,8 @@
     <textarea id="input" placeholder="Type or use the keys..." oninput="updatePreview()"></textarea>
     <div class="preview" id="preview"></div>
     <div class="copyrow">
-      <button class="btn-copy" onclick="copyRendered()">Copy</button>
-      <button class="btn-send" onclick="sendToStoryline()">Send</button>
+      <button class="btn-copy" onclick="copyUnicode()">Copy</button>
+      <button class="btn-send" onclick="sendUnicode()">Send</button>
     </div>
 
     <div class="wrap">
@@ -53,23 +50,28 @@
         <div class="btn" onclick="sendInsert(' - ')">−</div>
         <div class="btn" onclick="sendInsert('\\times')">×</div>
         <div class="btn" onclick="sendInsert(' : ')">:</div>
+
         <div class="btn" onclick="sendInsert(' = ')">=</div>
         <div class="btn" onclick="sendInsert('\\neq')">≠</div>
         <div class="btn" onclick="sendInsert('\\approx')">≈</div>
         <div class="btn" onclick="sendInsert('\\equiv')">≡</div>
+
         <div class="btn" onclick="sendInsert('^{2}')">x²</div>
         <div class="btn" onclick="sendInsert('^{3}')">x³</div>
         <div class="btn" onclick="sendInsertMove('^{ }', -2)">xⁿ</div>
         <div class="btn" onclick="sendInsertMove(' \\frac{}{}', -3)">a⁄b</div>
+
         <div class="btn" onclick="sendInsertMove(' \\sqrt{}', -1)">√</div>
         <div class="btn" onclick="sendInsertMove(' \\sqrt[n]{}', -1)">ⁿ√</div>
         <div class="btn" onclick="sendInsert(' < ')">&lt;</div>
         <div class="btn" onclick="sendInsert(' > ')">&gt;</div>
+
         <div class="btn" onclick="sendInsert('(')">(</div>
         <div class="btn" onclick="sendInsert(')')">)</div>
         <div class="btn" onclick="sendInsert('[')">[</div>
         <div class="btn" onclick="sendInsert(']')">]</div>
       </div>
+
       <div class="row">
         <div class="btn" onclick="sendInsert('.')">.</div>
         <div class="btn" onclick="sendAction('back')">←</div>
@@ -78,18 +80,19 @@
       </div>
     </div>
   </div>
+
   <div id="toast" class="toast">Copied</div>
 
 <script>
-  const TARGET = null; // or "MathEntry1"
+  /* Target a specific Text Entry by Accessibility Name (or null to use focused/last via your slide JS) */
+  const TARGET = null;
 
-  function post(msg){ try { parent.postMessage(msg, "*"); } catch(e) {} }
   function toast(msg){
     const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
+    t.textContent = msg; t.classList.add('show');
     setTimeout(()=>t.classList.remove('show'), 1000);
   }
+  function post(msg){ try { parent.postMessage(msg, "*"); } catch(e) {} }
 
   function updatePreview(){
     const src = document.getElementById('input').value;
@@ -98,16 +101,61 @@
     if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([prev]);
   }
 
-  function getRenderedText(){
-    const prev = document.getElementById('preview');
-    // Fallback to visible text if MathJax objects not accessible
-    let text = (prev.textContent || "").replace(/\s+/g, " ").trim();
-    return text || "";
+  /* ---------------- LaTeX -> Unicode “pretty text” ---------------- */
+  const SUP = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','+':'⁺','-':'⁻','(':'⁽',')':'⁾','n':'ⁿ'};
+  const SUB = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉','+':'₊','-':'₋','(':'₍',')':'₎'};
+  const OPS = {
+    '\\times':'×','\\cdot':'·','\\pm':'±','\\div':'÷',
+    '\\le':'≤','\\leq':'≤','\\ge':'≥','\\geq':'≥',
+    '\\neq':'≠','\\approx':'≈','\\equiv':'≡'
+  };
+  const GREEK = {
+    '\\alpha':'α','\\beta':'β','\\gamma':'γ','\\delta':'δ','\\theta':'θ','\\lambda':'λ','\\mu':'μ',
+    '\\pi':'π','\\sigma':'σ','\\phi':'φ','\\omega':'ω','\\Omega':'Ω'
+  };
+  const VULGAR = {
+    '1/2':'½','1/3':'⅓','2/3':'⅔','1/4':'¼','3/4':'¾','1/5':'⅕','2/5':'⅖','3/5':'⅗','4/5':'⅘',
+    '1/6':'⅙','5/6':'⅚','1/7':'⅐','1/8':'⅛','3/8':'⅜','5/8':'⅝','7/8':'⅞','1/9':'⅑','1/10':'⅒'
+  };
+  function toSup(s){ return s.split('').map(ch=>SUP[ch]||ch).join(''); }
+  function toSub(s){ return s.split('').map(ch=>SUB[ch]||ch).join(''); }
+
+  function latexToUnicode(lx){
+    let s = (lx||'').trim();
+
+    // Operators & Greek
+    Object.keys(OPS).forEach(k => { s = s.replaceAll(k, OPS[k]); });
+    Object.keys(GREEK).forEach(k => { s = s.replaceAll(k, GREEK[k]); });
+
+    // \sqrt[n]{x} -> n√(x) with n in superscript if digits or 'n'
+    s = s.replace(/\\sqrt\[(.+?)\]\{(.+?)\}/g, (_,idx,rad)=> toSup(idx)+ '√(' + rad + ')');
+    // \sqrt{x} -> √(x)
+    s = s.replace(/\\sqrt\{(.+?)\}/g, (_,rad)=> '√(' + rad + ')');
+
+    // \frac{a}{b} -> vulgar or a⁄b (U+2044)
+    s = s.replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, (_,a,b)=>{
+      const key = `${a.trim()}/${b.trim()}`;
+      return VULGAR[key] || `${a}⁄${b}`;
+    });
+
+    // Superscripts: ^{...} then ^x
+    s = s.replace(/\^\{([^}]+)\}/g, (_,p)=> toSup(p));
+    s = s.replace(/\^([0-9n()+-])/g, (_,p)=> toSup(p));
+
+    // Subscripts: _{...} then _x
+    s = s.replace(/_\{([^}]+)\}/g, (_,p)=> toSub(p));
+    s = s.replace(/_([0-9()+-])/g, (_,p)=> toSub(p));
+
+    // Clean spacing around parentheses
+    s = s.replace(/\s+/g,' ').trim();
+    return s;
   }
 
-  async function copyRendered(){
-    const text = getRenderedText();
-    try {
+  /* ---------------- Copy & Send (Unicode) ---------------- */
+  async function copyUnicode(){
+    const src = document.getElementById('input').value;
+    const text = latexToUnicode(src) || (document.getElementById('preview').textContent||'').trim();
+    try{
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(text);
       } else {
@@ -116,18 +164,18 @@
         document.body.appendChild(ta); ta.focus(); ta.select();
         document.execCommand('copy'); document.body.removeChild(ta);
       }
-      toast("Copied: " + text);
-    } catch(e){
-      toast("Copy failed");
-    }
+      toast('Copied: ' + text);
+    }catch(e){ toast('Copy failed'); }
   }
 
-  function sendToStoryline(){
-    const text = getRenderedText(); // rendered instead of LaTeX
-    post({ type: "LATEX_SET", value: text, target: TARGET });
-    toast("Sent: " + text);
+  function sendUnicode(){
+    const src = document.getElementById('input').value;
+    const text = latexToUnicode(src);
+    post({ type: "LATEX_SET", value: text, target: TARGET }); // your slide JS sets the entry
+    toast('Sent: ' + text);
   }
 
+  /* ---------------- Keypad ---------------- */
   function insertIntoLocal(text){
     const input = document.getElementById('input');
     const s = input.selectionStart, e = input.selectionEnd;
@@ -142,7 +190,8 @@
     else if (s > 0){ input.value = input.value.slice(0, s-1) + input.value.slice(e); input.selectionStart = input.selectionEnd = s-1; }
     updatePreview();
   }
-  function clearLocal(){ document.getElementById('input').value = ''; updatePreview(); }
+  function clearLocal(){ document.getElementById('input').value=''; updatePreview(); }
+
   function sendInsert(text){ insertIntoLocal(text); }
   function sendInsertMove(text, move){
     insertIntoLocal(text);
